@@ -21,13 +21,13 @@ class Inception(nn.Module):
         super().__init__()
         self.bottleneck = nn.Conv1d(c_in, bottleneck, 1) if bottleneck and c_in > 1 else noop
         mts_feat = bottleneck or c_in
-        conv_layers = []
         kss = [ks // (2**i) for i in range(3)]
         # ensure odd kss until nn.Conv1d with padding='same' is available in pytorch 1.3
-        kss = [ksi if ksi % 2 != 0 else ksi - 1 for ksi in kss]  
-        for i in range(len(kss)):
-            conv_layers.append(
-                nn.Conv1d(mts_feat, nb_filters, kernel_size=kss[i], padding=kss[i] // 2))
+        kss = [ksi if ksi % 2 != 0 else ksi - 1 for ksi in kss]
+        conv_layers = [
+            nn.Conv1d(mts_feat, nb_filters, kernel_size=ks_, padding=ks_ // 2)
+            for ks_ in kss
+        ]
         self.conv_layers = nn.ModuleList(conv_layers)
         self.maxpool = nn.MaxPool1d(3, stride=1, padding=1)
         self.conv = nn.Conv1d(c_in, nb_filters, kernel_size=1)
@@ -39,8 +39,7 @@ class Inception(nn.Module):
         x = self.bottleneck(input_tensor)
         for i in range(3):
             out_ = self.conv_layers[i](x)
-            if i == 0: out = out_
-            else: out = torch.cat((out, out_), 1)
+            out = out_ if i == 0 else torch.cat((out, out_), 1)
         mp = self.conv(self.maxpool(input_tensor))
         inc_out = torch.cat((out, mp), 1)
         return self.act(self.bn(inc_out))

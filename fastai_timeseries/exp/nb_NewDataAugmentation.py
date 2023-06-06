@@ -203,8 +203,7 @@ def get_x1_coords(x_size, n_patches, same_size=True):
         h = [0] + h + [x_size[-2]]
     patch = []
     for i in range(n_patches[0]):
-        for j in range(n_patches[1]):
-            patch.append([h[j], h[j + 1], w[i], w[i + 1]])
+        patch.extend([h[j], h[j + 1], w[i], w[i + 1]] for j in range(n_patches[1]))
     return patch
 
 
@@ -286,11 +285,14 @@ class BlendCallback(LearnerCallback):
         same_crop: cropping subregion will be the same as input subregion, otherwise different
         same_image: False - cropping image will be different from input image, otherwise same
         '''
-        assert blend_type in ['zero', 'noise', 'mix', 'cut', 'random'], \
-        print("make sure you select one of these blend_types: 'zero', 'noise', 'mix', 'cut', 'random'")
+        assert blend_type in {'zero', 'noise', 'mix', 'cut', 'random'}, print(
+            "make sure you select one of these blend_types: 'zero', 'noise', 'mix', 'cut', 'random'"
+        )
         if not grid and not same_image:
-            assert blend_type in ['zero', 'noise'],\
-            print('either grid or same_image must be set to True when using', blend_type)
+            assert blend_type in {'zero', 'noise'}, print(
+                'either grid or same_image must be set to True when using',
+                blend_type,
+            )
         super().__init__(learn)
         self.size,self.alpha,self.fixed_proba,self.blend_type = size,alpha,fixed_proba,blend_type
         self.grid,self.same_size,self.same_crop,self.same_image = grid,same_size,same_crop,same_image
@@ -309,10 +311,8 @@ class BlendCallback(LearnerCallback):
         i_h, i_w = x_size[2:] # image height, width
         if not isinstance(self.size, tuple): self.size = (self.size, self.size)
         p_h, p_w = self.size # patch percent height, width
-        if p_h == 1 or isinstance(p_h, float): h = int(p_h * i_h) # patch height in pixels
-        else: h = p_h
-        if p_w == 1 or isinstance(p_w, float): w = int(p_w * i_w) # patch width in pixels
-        else: w = p_w
+        h = int(p_h * i_h) if p_h == 1 or isinstance(p_h, float) else p_h
+        w = int(p_w * i_w) if p_w == 1 or isinstance(p_w, float) else p_w
         if w == 0 or h == 0: return {'last_input': last_input, 'last_target': last_target}
         patched_images = last_input.clone()
 
@@ -424,8 +424,7 @@ class TfmScheduler(LearnerCallback):
         if not isinstance(self.tfm_fn, functools.partial): self.tfm_fn = partial(self.tfm_fn)
         self.fn = get_fn(self.tfm_fn)
         if hasattr(self.fn, 'cb_fn'): self.fn = self.fn.cb_fn
-        if hasattr(self.fn, 'on_batch_begin'): self.cb = True
-        else: self.cb = False
+        self.cb = bool(hasattr(self.fn, 'on_batch_begin'))
 
 
     def on_train_begin(self, n_epochs: int, epoch: int, **kwargs: Any):
@@ -467,9 +466,8 @@ class TfmScheduler(LearnerCallback):
             if self.cb:
                 return self.fn(self.learn, **kw).on_batch_begin(
                     last_input=last_input,last_target=last_target,train=train)
-            else:
-                new_input = self.fn(last_input, **kw)
-                return {'last_input': new_input, 'last_target': last_target}
+            new_input = self.fn(last_input, **kw)
+            return {'last_input': new_input, 'last_target': last_target}
         else: return
 
     def on_train_end(self, **kwargs):
@@ -490,8 +488,7 @@ class MyScheduler():
             if self.end_iter == 1 or isinstance(self.end_iter, float):
                 self.end_iter = int(self.end_iter * total_iters)
         self.eff_iters = self.end_iter - self.start_iter
-        if sch_func is None: self.sch_func = annealing_linear
-        else: self.sch_func = sch_func
+        self.sch_func = annealing_linear if sch_func is None else sch_func
         self.n = 0
 
     def restart(self): self.n = 0
@@ -542,10 +539,14 @@ def show_multi_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
     for cb in learn.callback_fns:
         try:
             cb_fn = partial(cb.func, **cb.keywords)
-            [Image(cb_fn(learn).on_batch_begin(
-                        xb, yb, True)['last_input'][0]).show(ax=ax)
-                for i, ax in enumerate(
-                    plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+            [
+                Image(
+                    cb_fn(learn).on_batch_begin(xb, yb, True)['last_input'][0]
+                ).show(ax=ax)
+                for ax in plt.subplots(rows, cols, figsize=figsize)[
+                    1
+                ].flatten()
+            ]
             plt.show()
             break
         except:
@@ -560,8 +561,10 @@ def show_single_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
     img = learn.data.train_ds.x
     tfms = learn.data.train_ds.tfms
     rand_int = np.random.randint(len(img))
-    [img[rand_int].apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(
-            plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+    [
+        img[rand_int].apply_tfms(tfms).show(ax=ax)
+        for ax in plt.subplots(rows, cols, figsize=figsize)[1].flatten()
+    ]
     plt.show()
     return learn
 
@@ -573,10 +576,14 @@ def show_multi_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
     for cb in learn.callback_fns:
         try:
             cb_fn = partial(cb.func, **cb.keywords)
-            [Image(cb_fn(learn).on_batch_begin(
-                        xb, yb, True)['last_input'][0]).show(ax=ax)
-                for i, ax in enumerate(
-                    plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+            [
+                Image(
+                    cb_fn(learn).on_batch_begin(xb, yb, True)['last_input'][0]
+                ).show(ax=ax)
+                for ax in plt.subplots(rows, cols, figsize=figsize)[
+                    1
+                ].flatten()
+            ]
             plt.show()
             break
         except:

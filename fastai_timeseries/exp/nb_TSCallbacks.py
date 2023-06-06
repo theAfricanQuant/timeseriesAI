@@ -232,7 +232,27 @@ def show_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
     ndim = xb.ndim
     tfms = learn.data.train_ds.tfms
 
-    if ndim == 4:
+    if ndim == 3:
+        rand_item = TSItem(xb[rand_int])
+        cb_tfms = 0
+        for cb in learn.callback_fns:
+            if get_fn(cb).__name__ == 'Recorder': continue
+            if hasattr(cb, 'keywords') and hasattr(get_fn(cb), 'on_batch_begin'):
+                cb_fn = partial(get_fn(cb), **cb.keywords)
+                try:
+                    fig = plt.subplots(rows, cols, figsize=figsize, sharex=True, sharey=True)[1].flatten()
+                    plt.suptitle(get_fn(cb).__name__ , size=14)
+                    [rand_item.show(ax=ax) if i == 0 else (TSItem(cb_fn(learn).on_batch_begin(xb, yb, True)['last_input'][rand_int])
+                     .apply_tfms(tfms).show(ax=ax)) for i, ax in enumerate(fig)]
+                    fig[0].set_title('original')
+                    plt.show()
+                    cb_tfms += 1
+                    break
+                except:
+                    plt.close('all')
+
+
+    elif ndim == 4:
         rand_item = Image(xb[rand_int])
         #print('\noriginal image:')
         #display(rand_item)
@@ -255,33 +275,12 @@ def show_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
                 except:
                     plt.close('all')
 
-    elif ndim == 3:
-        rand_item = TSItem(xb[rand_int])
-        cb_tfms = 0
-        for cb in learn.callback_fns:
-            if get_fn(cb).__name__ == 'Recorder': continue
-            if hasattr(cb, 'keywords') and hasattr(get_fn(cb), 'on_batch_begin'):
-                cb_fn = partial(get_fn(cb), **cb.keywords)
-                try:
-                    fig = plt.subplots(rows, cols, figsize=figsize, sharex=True, sharey=True)[1].flatten()
-                    plt.suptitle(get_fn(cb).__name__ , size=14)
-                    [rand_item.show(ax=ax) if i == 0 else (TSItem(cb_fn(learn).on_batch_begin(xb, yb, True)['last_input'][rand_int])
-                     .apply_tfms(tfms).show(ax=ax)) for i, ax in enumerate(fig)]
-                    fig[0].set_title('original')
-                    plt.show()
-                    cb_tfms += 1
-                    break
-                except:
-                    plt.close('all')
-
-
     if tfms is not None:
         fig = plt.subplots(rows, cols, figsize=figsize, sharex=True, sharey=True)[1].flatten()
         [rand_item.show(ax=ax) if i == 0 else rand_item.apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(fig)]
         fig[0].set_title('original')
         try:
-            t_ = []
-            for t in learn.data.train_ds.tfms: t_.append(get_fn(t).__name__)
+            t_ = [get_fn(t).__name__ for t in learn.data.train_ds.tfms]
             title = f"{str(t_)[1:-1]} transforms applied"
             plt.suptitle(title, size=14)
         except: pass
@@ -302,15 +301,16 @@ def show_tfms_db(data, rows=3, cols=3, figsize=(8, 8)):
     ndim = xb.ndim
     tfms = data.train_ds.tfms
 
-    if ndim == 4: rand_item = Image(xb[rand_int])
-    elif ndim == 3:rand_item = TSItem(xb[rand_int])
+    if ndim == 3:
+        rand_item = TSItem(xb[rand_int])
+    elif ndim == 4:
+        if ndim == 4: rand_item = Image(xb[rand_int])
     if tfms is not None:
         fig = plt.subplots(rows, cols, figsize=figsize, sharex=True, sharey=True)[1].flatten()
         [rand_item.show(ax=ax) if i == 0 else rand_item.apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(fig)]
         fig[0].set_title('original')
         try:
-            t_ = []
-            for t in learn.data.train_ds.tfms: t_.append(get_fn(t).__name__)
+            t_ = [get_fn(t).__name__ for t in learn.data.train_ds.tfms]
             title = f"{str(t_)[1:-1]} transforms applied"
             plt.suptitle(title, size=14)
         except: pass
@@ -423,8 +423,7 @@ class TfmScheduler(LearnerCallback):
         if not isinstance(self.tfm_fn, functools.partial): self.tfm_fn = partial(self.tfm_fn)
         self.fn = get_fn(self.tfm_fn)
         if hasattr(self.fn, 'cb_fn'): self.fn = self.fn.cb_fn
-        if hasattr(self.fn, 'on_batch_begin'): self.cb = True
-        else: self.cb = False
+        self.cb = bool(hasattr(self.fn, 'on_batch_begin'))
 
 
     def on_train_begin(self, n_epochs: int, epoch: int, **kwargs: Any):
@@ -466,9 +465,8 @@ class TfmScheduler(LearnerCallback):
             if self.cb:
                 return self.fn(self.learn, **kw).on_batch_begin(
                     last_input=last_input,last_target=last_target,train=train)
-            else:
-                new_input = self.fn(last_input, **kw)
-                return {'last_input': new_input, 'last_target': last_target}
+            new_input = self.fn(last_input, **kw)
+            return {'last_input': new_input, 'last_target': last_target}
         else: return
 
     def on_train_end(self, **kwargs):
@@ -489,8 +487,7 @@ class MyScheduler():
             if self.end_iter == 1 or isinstance(self.end_iter, float):
                 self.end_iter = int(self.end_iter * total_iters)
         self.eff_iters = self.end_iter - self.start_iter
-        if sch_func is None: self.sch_func = annealing_linear
-        else: self.sch_func = sch_func
+        self.sch_func = annealing_linear if sch_func is None else sch_func
         self.n = 0
 
     def restart(self): self.n = 0

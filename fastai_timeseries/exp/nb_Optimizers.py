@@ -12,15 +12,14 @@ class RAdam(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        self.buffer = [[None, None, None] for ind in range(10)]
+        self.buffer = [[None, None, None] for _ in range(10)]
         super(RAdam, self).__init__(params, defaults)
 
     def __setstate__(self, state):
         super(RAdam, self).__setstate__(state)
 
     def step(self, closure=None):
-        loss = None
-        if closure is not None:loss = closure()
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
 
             for p in group['params']:
@@ -102,14 +101,14 @@ class LAMB(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-6,
                  weight_decay=0, adam=False):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay)
         self.adam = adam
@@ -121,10 +120,7 @@ class LAMB(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
@@ -210,14 +206,13 @@ class LARS(Optimizer):
     def __init__(self, params, lr=1e-3, momentum=.9,
                  weight_decay=.0005, eta=0.001, max_epoch=200):
         if lr is not required and lr < 0.0:
-            raise ValueError("Invalid learning rate: {}".format(lr))
+            raise ValueError(f"Invalid learning rate: {lr}")
         if momentum < 0.0:
-            raise ValueError("Invalid momentum value: {}".format(momentum))
+            raise ValueError(f"Invalid momentum value: {momentum}")
         if weight_decay < 0.0:
-            raise ValueError("Invalid weight_decay value: {}"
-                             .format(weight_decay))
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
         if eta < 0.0:
-            raise ValueError("Invalid LARS coefficient value: {}".format(eta))
+            raise ValueError(f"Invalid LARS coefficient value: {eta}")
 
         self.epoch = 0
         defaults = dict(lr=lr, momentum=momentum,
@@ -233,10 +228,7 @@ class LARS(Optimizer):
             epoch: current epoch to calculate polynomial LR decay schedule.
                    if None, uses self.epoch and increments it.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         if epoch is None:
             epoch = self.epoch
             self.epoch += 1
@@ -264,14 +256,14 @@ class LARS(Optimizer):
 
                 # Compute local learning rate for this layer
                 local_lr = eta * weight_norm / \
-                    (grad_norm + weight_decay * weight_norm)
+                        (grad_norm + weight_decay * weight_norm)
 
                 # Update the momentum term
                 actual_lr = local_lr * global_lr
 
                 if 'momentum_buffer' not in param_state:
                     buf = param_state['momentum_buffer'] = \
-                            torch.zeros_like(p.data)
+                                torch.zeros_like(p.data)
                 else:
                     buf = param_state['momentum_buffer']
                 buf.mul_(momentum).add_(actual_lr, d_p + weight_decay * p.data)
@@ -297,10 +289,7 @@ class NovoGrad(optim.Optimizer):
         self._momentum_initialized = False
 
     def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         if not self._momentum_initialized:
             for group in self.param_groups:
                 for p in group['params']:
@@ -330,7 +319,7 @@ class NovoGrad(optim.Optimizer):
 
                 g2 = torch.norm(grad)**2
                 grad_ema = g2 if grad_ema is None else grad_ema * \
-                    self._beta2 + g2*(1. - self._beta2)
+                        self._beta2 + g2*(1. - self._beta2)
                 grad *= 1.0 / torch.sqrt(grad_ema + self._eps)
 
                 if self._wd > 0.:
@@ -364,7 +353,7 @@ class Lookahead(Optimizer):
     def __init__(self, base_optimizer, alpha=0.5, k=6):
         if not 0.0 <= alpha <= 1.0:
             raise ValueError(f'Invalid slow update rate: {alpha}')
-        if not 1 <= k:
+        if k < 1:
             raise ValueError(f'Invalid lookahead steps: {k}')
         defaults = dict(lookahead_alpha=alpha, lookahead_k=k, lookahead_step=0)
         self.base_optimizer = base_optimizer
@@ -474,18 +463,18 @@ class AdaBound(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), final_lr=0.1, gamma=1e-3,
                  eps=1e-8, weight_decay=0, amsbound=False):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 <= final_lr:
-            raise ValueError("Invalid final learning rate: {}".format(final_lr))
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if final_lr < 0.0:
+            raise ValueError(f"Invalid final learning rate: {final_lr}")
         if not 0.0 <= gamma < 1.0:
-            raise ValueError("Invalid gamma parameter: {}".format(gamma))
+            raise ValueError(f"Invalid gamma parameter: {gamma}")
         defaults = dict(lr=lr, betas=betas, final_lr=final_lr, gamma=gamma, eps=eps,
                         weight_decay=weight_decay, amsbound=amsbound)
         super(AdaBound, self).__init__(params, defaults)
@@ -503,10 +492,7 @@ class AdaBound(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group, base_lr in zip(self.param_groups, self.base_lrs):
             for p in group['params']:
                 if p.grad is None:
@@ -588,18 +574,18 @@ class AdaBoundW(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), final_lr=0.1, gamma=1e-3,
                  eps=1e-8, weight_decay=0, amsbound=False):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 <= final_lr:
-            raise ValueError("Invalid final learning rate: {}".format(final_lr))
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if final_lr < 0.0:
+            raise ValueError(f"Invalid final learning rate: {final_lr}")
         if not 0.0 <= gamma < 1.0:
-            raise ValueError("Invalid gamma parameter: {}".format(gamma))
+            raise ValueError(f"Invalid gamma parameter: {gamma}")
         defaults = dict(lr=lr, betas=betas, final_lr=final_lr, gamma=gamma, eps=eps,
                         weight_decay=weight_decay, amsbound=amsbound)
         super(AdaBoundW, self).__init__(params, defaults)
@@ -618,10 +604,7 @@ class AdaBoundW(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group, base_lr in zip(self.param_groups, self.base_lrs):
             for p in group['params']:
                 if p.grad is None:
@@ -693,7 +676,7 @@ class RALAMB(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        self.buffer = [[None, None, None] for ind in range(10)]
+        self.buffer = [[None, None, None] for _ in range(10)]
         super(RALAMB, self).__init__(params, defaults)
 
     def __setstate__(self, state):
@@ -701,10 +684,7 @@ class RALAMB(Optimizer):
 
     def step(self, closure=None):
 
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
 
             for p in group['params']:
@@ -799,11 +779,11 @@ class Ranger(Optimizer):
         #parameter checks
         if not 0.0 <= alpha <= 1.0:
             raise ValueError(f'Invalid slow update rate: {alpha}')
-        if not 1 <= k:
+        if k < 1:
             raise ValueError(f'Invalid lookahead steps: {k}')
-        if not lr > 0:
+        if lr <= 0:
             raise ValueError(f'Invalid Learning Rate: {lr}')
-        if not eps > 0:
+        if eps <= 0:
             raise ValueError(f'Invalid eps: {eps}')
 
         #parameter comments:
@@ -818,18 +798,12 @@ class Ranger(Optimizer):
         #adjustable threshold
         self.N_sma_threshhold = N_sma_threshhold
 
-        #now we can get to work...
-        #removed as we now use step from RAdam...no need for duplicate step counting
-        #for group in self.param_groups:
-        #    group["step_counter"] = 0
-            #print("group step counter init")
-
         #look ahead params
         self.alpha = alpha
         self.k = k
 
         #radam buffer for state
-        self.radam_buffer = [[None,None,None] for ind in range(10)]
+        self.radam_buffer = [[None,None,None] for _ in range(10)]
 
         #self.first_run_check=0
 
@@ -849,13 +823,6 @@ class Ranger(Optimizer):
 
 
     def step(self, closure=None):
-        loss = None
-        #note - below is commented out b/c I have other work that passes back the loss as a float, and thus not a callable closure.
-        #Uncomment if you need to use the actual closure...
-
-        #if closure is not None:
-            #loss = closure()
-
         #Evaluate averages and grad, update param tensors
         for group in self.param_groups:
 
@@ -931,7 +898,7 @@ class Ranger(Optimizer):
                     slow_p.add_(self.alpha, p.data - slow_p)  #(fast weights - slow weights) * alpha
                     p.data.copy_(slow_p)  #copy interpolated weights to RAdam param tensor
 
-        return loss
+        return None
 
 
 

@@ -156,12 +156,8 @@ def _magnoise(x, magnitude=.1, add=True):
         x = x[0]
     seq_len = x.shape[-1]
     noise = torch.normal(0, magnitude, (1, seq_len), dtype=x.dtype, device=x.device)
-    if add:
-        output = x + noise
-        return output if y is None else [output, y]
-    else:
-        output = x * (1 + noise)
-        return output if y is None else [output, y]
+    output = x + noise if add else x * (1 + noise)
+    return output if y is None else [output, y]
 
 TSmagnoise = TSTransform(_magnoise)
 TSjittering = TSTransform(_magnoise)
@@ -255,8 +251,7 @@ def _zoomin(x, magnitude=.2):
     lambd = np.random.beta(magnitude, magnitude)
     lambd = max(lambd, 1 - lambd)
     win_len = int(seq_len * lambd)
-    if win_len == seq_len: start = 0
-    else: start = np.random.randint(0, seq_len - win_len)
+    start = 0 if win_len == seq_len else np.random.randint(0, seq_len - win_len)
     x2 = x[..., start : start + win_len]
     f = CubicSpline(np.arange(x2.shape[-1]), x2, axis=-1)
     output = x.new(f(np.linspace(0, win_len - 1, num=seq_len)))

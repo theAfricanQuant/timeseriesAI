@@ -50,8 +50,7 @@ def get_elements(arr, idx):
     return itemgetter(*idx)(arr)
 
 def cloning(list1):
-    li_copy = list1[:]
-    return li_copy
+    return list1[:]
 
 
 
@@ -71,7 +70,7 @@ def scale(arr,
         train = arr
         if scaling_type == 'normalization':
             if train.ndim == 2:
-                if scaling_subtype == 'all_samples' or scaling_subtype == 'per_sample':
+                if scaling_subtype in ['all_samples', 'per_sample']:
                     train_min = train.min(keepdims=True)
                     train_max = train.max(keepdims=True)
                 elif scaling_subtype == 'per_channel':
@@ -96,7 +95,7 @@ def scale(arr,
             train_stats = (train_min, train_max)
         elif scaling_type == 'standardization':
             if train.ndim == 2:
-                if scaling_subtype == 'all_samples' or scaling_subtype == 'per_sample':
+                if scaling_subtype in ['all_samples', 'per_sample']:
                     train_mean = train.mean(keepdims=True)
                     train_std = train.std(keepdims=True)
                 elif scaling_subtype == 'per_channel':
@@ -213,10 +212,7 @@ def get_stratified_train_val_test_idxs(y,
                                        seed=1):
     from sklearn.model_selection import StratifiedKFold
     if isinstance(y, np.ndarray): y = torch.Tensor(y).to(dtype=torch.int64)
-    if n_folds == 1:
-        folds = 5
-    else:
-        folds = n_folds
+    folds = 5 if n_folds == 1 else n_folds
     if y_add:
         if add_train_folds:
             # Augmented dataset
@@ -229,6 +225,8 @@ def get_stratified_train_val_test_idxs(y,
             train_add_idx = np.arange(len(y_add))
     else:
         train_add_idx = None
+    train_idx = []
+    val_idx = []
     if test_fold:
         outer_folds = list(
             StratifiedKFold(
@@ -239,8 +237,6 @@ def get_stratified_train_val_test_idxs(y,
         inner_folds = StratifiedKFold(
             n_splits=folds, shuffle=True, random_state=seed).split(
                 np.zeros(len(inner_idxs)), y[inner_idxs])
-        train_idx = []
-        val_idx = []
         for train, val in inner_folds:
             if oversample:
                 train = oversampled_idxs(y[inner_idxs], train, seed=seed)
@@ -253,8 +249,6 @@ def get_stratified_train_val_test_idxs(y,
         inner_folds = StratifiedKFold(
             n_splits=folds, shuffle=True, random_state=seed).split(
                 np.zeros(len(y)), y)
-        train_idx = []
-        val_idx = []
         for train, val in inner_folds:
             if oversample:
                 train = oversampled_idxs(y, train, seed=seed)
@@ -266,10 +260,10 @@ def get_stratified_train_val_test_idxs(y,
 
 
 def check_overlap(a, b):
-    overlap = [i for i in a if i in b]
-    if overlap == []:
+    if overlap := [i for i in a if i in b]:
+        return overlap
+    else:
         return
-    return overlap
 
 
 def leakage_finder(train, val, test=None):
@@ -341,8 +335,10 @@ def history_output(learn, max_lr, epochs, t0, t1):
     print('batch size              :', learn.data.train_dl.batch_size)
     print('max_lr                  :', max_lr)
     print('wd                      :', learn.wd)
-    print('time                    :',
-          str(datetime.timedelta(seconds=(t1 - t0).seconds)))
+    print(
+        'time                    :',
+        datetime.timedelta(seconds=(t1 - t0).seconds),
+    )
     metrics = np.array(learn.recorder.metrics)
     metrics_names = learn.recorder.metrics_names
     train_loss = learn.recorder.losses
@@ -491,13 +487,6 @@ def ToDevice(ts, **kwargs):
     if isinstance(ts, torch.Tensor):
         return ts.type(torch.FloatTensor)
     return torch.from_numpy(ts).type(torch.FloatTensor).to(device)
-    if defaults.device.type == 'cpu':
-        ts = torch.from_numpy(ts).double()  #.type(torch.FloatTensor)
-        return ts
-    else:
-        ts = torch.from_numpy(ts).double().to(
-            device)  #.type(torch.FloatTensor)
-        return ts
 
 
 cudify = partial(ToDevice)
@@ -548,13 +537,13 @@ class FocalLoss(nn.Module):
 
 def get_model_hp(tsmodel, kwargs=[{}]):
     all_args = inspect.getargspec(tsmodel.__dict__['__init__'])
-    if all_args.defaults:
-        tsmodel_dict = dict(zip(all_args.args[-len(all_args.defaults):], all_args.defaults))
-        if kwargs != [{}]:
-            for i in range(len(listify(kwargs))):
-                for k,v in kwargs[i].items(): tsmodel_dict[k] = v
-        return tsmodel_dict
-    else: return {}
+    if not all_args.defaults:
+        return {}
+    tsmodel_dict = dict(zip(all_args.args[-len(all_args.defaults):], all_args.defaults))
+    if kwargs != [{}]:
+        for i in range(len(listify(kwargs))):
+            for k,v in kwargs[i].items(): tsmodel_dict[k] = v
+    return tsmodel_dict
 
 
 def get_outcome_stats (learn, y_outcome, problem_type, train, valid, test=None, thr=None):
@@ -651,14 +640,14 @@ def noop(x): return x
 
 def get_layers(model, cond=noop):
     if isinstance(model, Learner): model=model.model
-    return [m for m in flatten_model(model) if any([c(m) for c in listify(cond)])]
+    return [m for m in flatten_model(model) if any(c(m) for c in listify(cond))]
 
 def count_params(model):
     if isinstance(model, Learner): model = model.model
     count = 0
     for l in get_layers(model):
-        for i in range(len(list(l.parameters()))):
-            count += len(list(l.parameters())[i].data.flatten())
+        for item in list(l.parameters()):
+            count += len(item.data.flatten())
     return count
 
 

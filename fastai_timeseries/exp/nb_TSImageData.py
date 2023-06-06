@@ -36,8 +36,7 @@ def GADF_encoder(ts, size=None, sample_range=None, overlapping=False,
                  **kwargs):
     ts = To2dArray(ts)
     assert ts.ndim == 2, 'ts ndim must be 2!'
-    if size is None: size = ts.shape[-1]
-    else: size = min(size, ts.shape[-1])
+    size = ts.shape[-1] if size is None else min(size, ts.shape[-1])
     encoder = GAF(
         image_size=size,
         sample_range=sample_range,
@@ -51,8 +50,7 @@ def GASF_encoder(ts, size=None, sample_range=None, overlapping=False,
                  **kwargs):
     ts = To2dArray(ts)
     assert ts.ndim == 2, 'ts ndim must be 2!'
-    if size is None: size = ts.shape[-1]
-    else: size = min(size, ts.shape[-1])
+    size = ts.shape[-1] if size is None else min(size, ts.shape[-1])
     encoder = GAF(
         image_size=size,
         sample_range=sample_range,
@@ -70,13 +68,11 @@ def MTF_encoder(ts,
                 **kwargs):
     ts = To2dArray(ts)
     assert ts.ndim == 2, 'ts ndim must be 2!'
-    if size is None: size = ts.shape[-1]
-    else: size = min(size, ts.shape[-1])
+    size = ts.shape[-1] if size is None else min(size, ts.shape[-1])
     ts = PAA(window_size=None, output_size=size).fit_transform(ts)
     encoder = MTF(
         size, n_bins=n_bins, strategy=strategy, overlapping=overlapping)
-    output = np.squeeze(encoder.fit_transform(ts), 0)
-    return output
+    return np.squeeze(encoder.fit_transform(ts), 0)
     #return norm(output)
 
 
@@ -90,8 +86,7 @@ def RP_encoder(ts,
                **kwargs):
     ts = To2dArray(ts)
     assert ts.ndim == 2, 'ts ndim must be 2!'
-    if size is None: size = ts.shape[-1]
-    else: size = min(size, ts.shape[-1])
+    size = ts.shape[-1] if size is None else min(size, ts.shape[-1])
     ts = PAA(window_size=None, output_size=size).fit_transform(ts)
     encoder = RP(
         dimension=dimension,
@@ -99,8 +94,7 @@ def RP_encoder(ts,
         threshold=threshold,
         percentage=percentage)
     output = np.squeeze(encoder.fit_transform(ts), 0)
-    if norm_output: return norm(output)
-    else: return output
+    return norm(output) if norm_output else output
 
 
 def Spectro_encoder(ts,
@@ -119,8 +113,7 @@ def Spectro_encoder(ts,
 
     ts = ToTensor(ts)
     assert ts.ndim == 2, 'ts ndim must be 2!'
-    if size is None: size = ts.shape[-1]
-    else: size = min(size, ts.shape[-1])
+    size = ts.shape[-1] if size is None else min(size, ts.shape[-1])
     if n_fft is None: n_fft = size
     if hop_length is None: hop_length = 1
     Zxx = torch.stft(
@@ -259,13 +252,12 @@ def ToImage(tensor, size=None, cmap=None, **kwargs):
     if tensor.ndim == 1: tensor = tensor[None]
     if cmap is None:
         if tensor.ndim == 2: tensor = tensor[None]
-        assert tensor.ndim == 3 or tensor.ndim == 1, f'incorrect tensor ndim --> {tensor.ndim}'
+        assert tensor.ndim in [3, 1], f'incorrect tensor ndim --> {tensor.ndim}'
     else:
         if tensor.ndim == 3: tensor = tensor.squeeze(0)
         assert tensor.ndim == 2, f'incorrect tensor ndim --> {tensor.ndim}'
         tensor = apply_cmap(tensor, cmap)
-    if size is None: return Image(tensor)
-    else: return Image(tensor).resize(size)
+    return Image(tensor) if size is None else Image(tensor).resize(size)
 
 
 def resize_tensor(tensor, size):
@@ -279,8 +271,7 @@ def add_dim(tensor, **kwargs):
 
 
 def _repeat_ch(tensor, **kwargs):
-    if tensor.shape[-3] == 3: return tensor
-    else: return tensor.repeat(3, 1, 1)
+    return tensor if tensor.shape[-3] == 3 else tensor.repeat(3, 1, 1)
 
 
 repeat_ch = partial(_repeat_ch)
@@ -290,12 +281,10 @@ def _add_zero_ch(tensor, **kwargs):
     if tensor.shape[-3] == 3: return tensor
     elif tensor.shape[-3] == 2:
         zeros = torch.zeros_like(tensor[0][None])
-        output = torch.cat([tensor, zeros])
-        return output
+        return torch.cat([tensor, zeros])
     else:
         zeros = torch.zeros_like(tensor)
-        output = torch.cat([tensor, zeros, zeros])
-        return output
+        return torch.cat([tensor, zeros, zeros])
 
 
 add_zero_ch = partial(_add_zero_ch)
@@ -343,8 +332,7 @@ class TS2Image():
             else: aug += [partial(add_dim)]
             aug += [partial(ToTensor)]
             funcs.append(compose(aug))
-        if repeat_channel: self.outsh = partial(repeat_ch)
-        else: self.outsh = partial(add_zero_ch)
+        self.outsh = partial(repeat_ch) if repeat_channel else partial(add_zero_ch)
         self.funcs = funcs
 
     def __call__(self, ts):
@@ -432,8 +420,7 @@ def get_fill_between_plot(data, sel_TCs=None, sel_channels=None, size=None, retu
                                       torch.ones(3, int(size * .05), size),
                                       plot_fill_between(data[j * feats:(j + 1) * feats], size, return_img=False)), axis=1)
 
-    if return_img: return Image(ToTensor(ImgData))
-    else: return ToTensor(ImgData)
+    return Image(ToTensor(ImgData)) if return_img else ToTensor(ImgData)
 
 
 
@@ -467,13 +454,13 @@ class TS2ImageList(ItemList):
             inputs = df.iloc[:, col_idxs]
         assert inputs.isna().sum().sum(
         ) == 0, f"You have NaN values in column(s) {cols} of your dataframe, please fix it."
-        res = cls(
+        return cls(
             items=inputs.values,
             path=path,
             inner_df=df,
             processor=processor,
-            **kwargs)
-        return res
+            **kwargs
+        )
 
     @classmethod
     def from_csv(cls, path, csv_name, header='infer', **kwargs) -> 'ItemList':

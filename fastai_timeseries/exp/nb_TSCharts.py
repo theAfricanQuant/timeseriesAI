@@ -32,7 +32,7 @@ class ActivationsHistogram(HookCallback):
         self.hMax = hMax
         self.nBins = nBins
         self.liveChart = liveChart
-        self.allModules = [m for m in flatten_model(learn.model)]
+        self.allModules = list(flatten_model(learn.model))
         self.useClasses = useClasses
         modules = self.allModules
         if modulesId:
@@ -76,7 +76,7 @@ class ActivationsHistogram(HookCallback):
 
     def on_batch_end(self, train, **kwargs):
         "Take the stored results and puts it in `self.stats_hist`"
-        hasValues = True if ((len(self.hooks.stored)>0) and (not (self.hooks.stored[0] is None))) else False
+        hasValues = len(self.hooks.stored)>0 and self.hooks.stored[0] is not None
         stacked = torch.stack(self.hooks.stored).unsqueeze(1)  if hasValues else None
         if train and hasValues:
             if self.stats_hist is None: self.stats_hist = stacked #start
@@ -87,18 +87,22 @@ class ActivationsHistogram(HookCallback):
 
     def on_epoch_end(self, **kwargs):
         self.stats_epoch.append(self.cur_train_batch)
-        start = 0 if 1==len(self.stats_epoch) else self.stats_epoch[-2]
-        end = self.stats_epoch[-1]
-        startValid = 0 if 0==len(self.stats_valid_epoch) else self.stats_valid_epoch[-1]
-        if not(self.stats_hist is None):
+        if self.stats_hist is not None:
             hScale = 1
+            start = 0 if len(self.stats_epoch) == 1 else self.stats_epoch[-2]
+            end = self.stats_epoch[-1]
             domain = self.stats_hist[-1][start:end]
             yy = np.arange(self.hMin,self.hMax,(self.hMax-self.hMin)/self.nBins)
             xx,_ = self.computeXY(domain,hScale,.25,start) # average on last quarter of epoch
             xx = xx.sum(-1) # useClasses support
             toDisplay = [(xx,yy)]
 
-            if not (self.stats_valid_hist is None):
+            if self.stats_valid_hist is not None:
+                startValid = (
+                    0
+                    if len(self.stats_valid_epoch) == 0
+                    else self.stats_valid_epoch[-1]
+                )
                 domainValid = self.stats_valid_hist[-1][startValid:] #till end
                 xxv,_ = self.computeXY(domainValid,hScale,1,start) # validation average all available data
                 xxv = xxv.sum(-1) # useClasses support
@@ -171,14 +175,14 @@ class ActivationsHistogram(HookCallback):
             main_ax.set_title(title)
             imgH=img.shape[0]
             main_ax.set_yticks([])
-            main_ax.set_ylabel(str(self.hMin) + " : " + str(self.hMax))
+            main_ax.set_ylabel(f"{str(self.hMin)} : {str(self.hMax)}")
             if aspectAuto: main_ax.set_aspect('auto')
             imgW=img.shape[1]
             imgH=img.shape[0]
             ratioH=-self.hMin/(self.hMax-self.hMin)
             zeroPosH = imgH*ratioH
             main_ax.plot([0,imgW],[zeroPosH,zeroPosH],'r') # X Axis
-            if (showEpochs):
+            if showEpochs:
                 start = 0
                 nEpochs = len(self.activations_histogram.stats_epoch)
                 for i,hh in enumerate(self.activations_histogram.stats_epoch):
@@ -187,7 +191,15 @@ class ActivationsHistogram(HookCallback):
                     domain = l[start:end]
                     domain_mean = domain.mean(-1) # mean on classes
                     if self.useClasses:
-                        self.plotPerc(main_ax,domain,hScale,1,start,colorById=True,addLabel=(0==i)) #plot all
+                        self.plotPerc(
+                            main_ax,
+                            domain,
+                            hScale,
+                            1,
+                            start,
+                            colorById=True,
+                            addLabel=i == 0,
+                        )
                         main_ax.legend(loc='upper left')
                     else:
                         self.plotPerc(main_ax,domain_mean,hScale,.5,start)

@@ -144,11 +144,10 @@ class Swish(nn.Module):
         self.inplace = inplace
 
     def forward(self, x):
-        if self.inplace:
-            x.mul_(F.sigmoid(x))
-            return x
-        else:
+        if not self.inplace:
             return x * F.sigmoid(x)
+        x.mul_(F.sigmoid(x))
+        return x
     
     
 class GeneralRelu(nn.Module):

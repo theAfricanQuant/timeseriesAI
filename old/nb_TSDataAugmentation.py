@@ -236,7 +236,7 @@ def _crop(ts, perc=.9):
 TScrop = TSTransform(_crop)
 
 def _window_slice(ts, perc=.9):
-    if perc == 1.0 or perc == 0: return ts
+    if perc in [1.0, 0]: return ts
     seq_len = ts.shape[-1]
     win_len = int(seq_len * perc)
     start = np.random.randint(0, seq_len - win_len)
@@ -250,8 +250,7 @@ def _random_zoom(ts, alpha=.2):
     lambd = np.random.beta(alpha, alpha)
     lambd = max(lambd, 1 - lambd)
     win_len = int(seq_len * lambd)
-    if win_len == seq_len: start = 0
-    else: start = np.random.randint(0, seq_len - win_len)
+    start = 0 if win_len == seq_len else np.random.randint(0, seq_len - win_len)
     y = ts[:, start : start + win_len]
     f = CubicSpline(np.arange(y.shape[-1]), y, axis=1)
     return ts.new(f(np.linspace(0, win_len - 1, num=seq_len)))

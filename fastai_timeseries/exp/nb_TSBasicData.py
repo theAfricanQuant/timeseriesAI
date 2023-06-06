@@ -282,13 +282,9 @@ class TimeSeriesList(ItemList):
         assert inputs.isna().sum().sum(
         ) == 0, f"You have NaN values in column(s) {cols} of your dataframe, please fix it."
         inputs = df2array(inputs, feat)
-        res = cls(
-            items=inputs,
-            path=path,
-            inner_df=df,
-            processor=processor,
-            **kwargs)
-        return res
+        return cls(
+            items=inputs, path=path, inner_df=df, processor=processor, **kwargs
+        )
 
 class TSList(TimeSeriesList): pass
 
@@ -364,13 +360,9 @@ class MixedTimeSeriesList(ItemList):
         ) == 0, f"You have NaN values in column(s) {cols} of your dataframe, please fix it."
         inputs = df2array(inputs, feat)
 
-        res = cls(
-            items=inputs,
-            path=path,
-            inner_df=df,
-            processor=processor,
-            **kwargs)
-        return res
+        return cls(
+            items=inputs, path=path, inner_df=df, processor=processor, **kwargs
+        )
 
 
 def df2array(df, feat=None):
@@ -378,6 +370,5 @@ def df2array(df, feat=None):
         return df.values[:, None]
     for i, ch in enumerate(df[feat].unique()):
         data_i = df[df[feat] == ch].values[:, None]
-        if i == 0: data = data_i
-        else: data = np.concatenate((data, data_i), axis=1)
+        data = data_i if i == 0 else np.concatenate((data, data_i), axis=1)
     return data

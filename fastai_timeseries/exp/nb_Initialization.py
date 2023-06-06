@@ -28,7 +28,8 @@ class ListContainer():
     def __delitem__(self, i): del(self.items[i])
     def __repr__(self):
         res = f'{self.__class__.__name__} ({len(self)} items)\n{self.items[:10]}'
-        if len(self)>10: res = res[:-1]+ '...]'
+        if len(self)>10:
+            res = f'{res[:-1]}...]'
         return res
 
 class Hook():
@@ -82,11 +83,11 @@ def has_weight_or_bias(l):
 def find_modules(m, cond=noop):
     if isinstance(m, Learner): m=m.model
     if cond(m): return [m]
-    return sum([find_modules(o,cond) for o in m.children()], [])
+    return sum((find_modules(o,cond) for o in m.children()), [])
 
 def get_layers(model, cond=noop):
     if isinstance(model, Learner): model=model.model
-    return [m for m in flatten_model(model) if any([c(m) for c in listify(cond)])]
+    return [m for m in flatten_model(model) if any(c(m) for c in listify(cond))]
 
 Learner.layers = get_layers
 
@@ -166,13 +167,11 @@ def orthogonal_weights_init(m):
         if hasattr(m, 'weight_v'):
             w_ortho = svd_orthonormal(m.weight_v.data.cpu().numpy())
             m.weight_v.data = torch.from_numpy(w_ortho).to(device)
-            try:nn.init.constant_(m.bias, 0)
-            except:pass
         else:
             w_ortho = svd_orthonormal(m.weight.data.cpu().numpy())
             m.weight.data = torch.from_numpy(w_ortho).to(device)
-            try:nn.init.constant_(m.bias, 0)
-            except:pass
+        try:nn.init.constant_(m.bias, 0)
+        except:pass
     return
 
 
@@ -273,7 +272,7 @@ def activations(learn, thr=.1, cond=noop) -> Learner:
     plt.xlim(0, 1)
     plt.ylim(len(y), -1)
     plt.legend(loc='best')
-    plt.title('Initial dead activations <={}'.format(str(thr)))
+    plt.title(f'Initial dead activations <={str(thr)}')
     plt.grid(axis='x', color='silver', alpha=.3)
     plt.show()
 

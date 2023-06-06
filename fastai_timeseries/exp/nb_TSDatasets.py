@@ -53,8 +53,7 @@ def decompress_from_url(url, target_dir=None, verbose=False):
         Archive(local_comp_fname).extractall(target_dir)
         shutil.rmtree(tmpdir)
         if verbose:
-            print("Successfully extracted file %s to path %s" %
-                  (local_comp_fname, target_dir))
+            print(f"Successfully extracted file {local_comp_fname} to path {target_dir}")
         return target_dir
     except:
         shutil.rmtree(tmpdir)
@@ -123,10 +122,10 @@ def get_UCR_univariate(sel_dataset, parent_dir='data/UCR', verbose=False, drop_n
         print(get_UCR_univariate_list())
         return None, None, None, None
     if verbose: print('Dataset:', sel_dataset)
-    src_website = 'http://www.timeseriesclassification.com/Downloads/'
     tgt_dir = Path(parent_dir) / sel_dataset
     if verbose: print('Downloading and decompressing data...')
     if not os.path.isdir(tgt_dir):
+        src_website = 'http://www.timeseriesclassification.com/Downloads/'
         decompress_from_url(
             src_website + sel_dataset + '.zip', target_dir=tgt_dir, verbose=verbose)
     if verbose: print('...data downloaded and decompressed')
@@ -168,33 +167,35 @@ def get_UCR_multivariate(sel_dataset, parent_dir='data/UCR', verbose=False, chec
         print(get_UCR_multivariate_list())
         return None, None, None, None
     if verbose: print('Dataset:', sel_dataset)
-    src_website = 'http://www.timeseriesclassification.com/Downloads/'
     tgt_dir = Path(parent_dir) / sel_dataset
 
     if verbose: print('Downloading and decompressing data...')
     if not os.path.isdir(tgt_dir):
+        src_website = 'http://www.timeseriesclassification.com/Downloads/'
         decompress_from_url(
             src_website + sel_dataset + '.zip', target_dir=tgt_dir, verbose=verbose)
     if verbose: print('...data downloaded and decompressed')
     if verbose: print('Extracting data...')
-    X_train_ = []
     X_test_ = []
+    X_train_ = []
     for i in range(10000):
         if not os.path.isfile(
-                f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension'
-                + str(i + 1) + '_TRAIN.arff'):
+            f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension{str(i + 1)}_TRAIN.arff'
+        ):
             break
         train_df = pd.DataFrame(
             arff.loadarff(
-                f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension'
-                + str(i + 1) + '_TRAIN.arff')[0])
+                f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension{str(i + 1)}_TRAIN.arff'
+            )[0]
+        )
         unique_cats = train_df.iloc[:, -1].unique()
         mapping = dict(zip(unique_cats, np.arange(len(unique_cats))))
         train_df = train_df.replace({train_df.columns.values[-1]: mapping})
         test_df = pd.DataFrame(
             arff.loadarff(
-                f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension'
-                + str(i + 1) + '_TEST.arff')[0])
+                f'{parent_dir}/{sel_dataset}/{sel_dataset}Dimension{str(i + 1)}_TEST.arff'
+            )[0]
+        )
         test_df = test_df.replace({test_df.columns.values[-1]: mapping})
         X_train_.append(train_df.iloc[:, :-1].values)
         X_test_.append(test_df.iloc[:, :-1].values)
@@ -236,12 +237,17 @@ def get_UCR_data(dsid, parent_dir='data/UCR', verbose=False, check=True):
 def create_UCR_databunch(dsid, bs=64, scale_type='standardize', scale_by_channel=False,
                          scale_by_sample=False, scale_range =(-1, 1), verbose=False, check=True):
     X_train, y_train, X_valid, y_valid = get_UCR_data(dsid, verbose=verbose, check=check)
-    data = (ItemLists('.', TSList(X_train), TSList(X_valid)).label_from_lists(y_train, y_valid)
-            .databunch(bs=min(bs, len(X_train)), val_bs=min(bs, len(X_valid)))
-            .scale(scale_type=scale_type, scale_by_channel=scale_by_channel,
-                   scale_by_sample=scale_by_sample,scale_range=scale_range)
-         )
-    return data
+    return (
+        ItemLists('.', TSList(X_train), TSList(X_valid))
+        .label_from_lists(y_train, y_valid)
+        .databunch(bs=min(bs, len(X_train)), val_bs=min(bs, len(X_valid)))
+        .scale(
+            scale_type=scale_type,
+            scale_by_channel=scale_by_channel,
+            scale_by_sample=scale_by_sample,
+            scale_range=scale_range,
+        )
+    )
 
 
 def create_seq_optimized(n_samples=1000, seq_len=100, channels=True, seed=1):
